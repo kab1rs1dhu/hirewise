@@ -10,6 +10,7 @@ import FormField from "./FormField";
 import { Button } from "@/components/ui/button"
 
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
 
 const authFormSchema = (type: FormType) => {
@@ -22,6 +23,7 @@ const authFormSchema = (type: FormType) => {
 
 
 const AuthForm = ({type }: {type: FormType}) => {
+  const router = useRouter();
 
   const formSchema = authFormSchema(type);
 
@@ -45,9 +47,11 @@ const AuthForm = ({type }: {type: FormType}) => {
 
       if(type === "sign-in") {
         toast.success("Signed in successfully!")
+        router.push('/')
       }
       else {
         toast.success("Account created successfully!")
+        router.push('/sign-in')
       }
       
     } catch (error) {
@@ -62,8 +66,8 @@ const AuthForm = ({type }: {type: FormType}) => {
   const isSignIn = type === "sign-in"
 
   return (
-    <div className="card-border lg:min-w-w[566px]">
-      <div className="flex flex-col gap-6 card py-14 px-10">
+    <div className="card-border lg:min-w-[566px]">
+      <div className="flex flex-col gap-6 card py-14 px-15">
         <div className="flex flex-row gap-2 justify-center">
           <Image src="/logo.svg" alt="logo" height={32} width={38} />
           <h2 className="text-primary-100">Hire Wise</h2>
