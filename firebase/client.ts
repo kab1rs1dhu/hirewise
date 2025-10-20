@@ -1,19 +1,25 @@
 
 import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getAuth } from "firebase/auth";
+import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-    apiKey: "AIzaSyBPBzj5HHgwkFrXlW848ULP8PhRvv3N7bM",
-    authDomain: "hirewise-efbe5.firebaseapp.com",
-    projectId: "hirewise-efbe5",
-    storageBucket: "hirewise-efbe5.firebasestorage.app",
-    messagingSenderId: "801566091545",
-    appId: "1:801566091545:web:9d0527238134091a5c3d88",
-    measurementId: "G-XL2RZ6NVBV"
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
-const app = !getApps.length ? initializeApp(firebaseConfig) : getApp();
+if (!firebaseConfig.apiKey) {
+  throw new Error(
+    "Firebase client config is missing NEXT_PUBLIC_FIREBASE_API_KEY. Double-check your environment variables."
+  );
+}
+
+const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
 export const auth = getAuth(app);
-export const db = getFirestore(app)
+export const db = getFirestore(app);
