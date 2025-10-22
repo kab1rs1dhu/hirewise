@@ -1,9 +1,24 @@
 'use server';
 
-import {db} from "@/firebase/admin";
-import {generateObject} from "ai";
-import {google} from "@ai-sdk/google";
-import {feedbackSchema} from "@/constants";
+import { db } from "@/firebase/admin";
+import { generateObject } from "ai";
+import { google } from "@ai-sdk/google";
+import { feedbackSchema } from "@/constants";
+
+const EMAILJS_ENDPOINT = "https://api.emailjs.com/api/v1.0/email/send";
+
+interface FeedbackEmailSummary {
+    userId: string;
+    interviewId: string;
+    feedbackId: string;
+    totalScore: number;
+    finalAssessment: string;
+    categoryScores: Array<{
+        name: string;
+        score: number;
+        comment: string;
+    }>;
+}
 
 export async function getInterviewsByUserId(userId: string): Promise<Interview[] | null> {
     const interviews = await db
@@ -86,7 +101,16 @@ export async function createFeedback(params: CreateFeedbackParams) {
             areasForImprovement,
             finalAssessment,
             createdAt: new Date().toISOString()
-        })
+        });
+
+        await sendFeedbackSummaryEmail({
+            userId,
+            interviewId,
+            feedbackId: feedback.id,
+            totalScore,
+            finalAssessment,
+            categoryScores,
+        });
 
         return {
             success: true,
@@ -116,4 +140,64 @@ export async function getFeedbackByInterviewId(params: GetFeedbackByInterviewIdP
     return {
         id: feedbackDoc.id, ...feedbackDoc.data()
 ,    } as Feedback;
+}
+
+async function sendFeedbackSummaryEmail(summary: FeedbackEmailSummary) {
+    const serviceId = process.env.EMAILJS_SERVICE_ID;
+    const templateId = process.env.EMAILJS_TEMPLATE_ID;
+    const publicKey = process.env.EMAILJS_PUBLIC_KEY;
+    const privateKey = process.env.EMAILJS_PRIVATE_KEY;
+
+    if (!serviceId || !templateId || !publicKey || !privateKey) {
+        console.warn("EmailJS environment variables are not fully configured. Skipping email send.");
+        return;
+    }
+
+    const userDoc = await db.collection('users').doc(summary.userId).get();
+    const userData = userDoc.data();
+
+    if (!userDoc.exists || !userData?.email) {
+        console.warn(`Unable to send email summary. User not found or email missing for userId: ${summary.userId}`);
+        return;
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+    const categoryBreakdown = summary.categoryScores
+        .map((category) => `${category.name}: ${category.score}/100 — ${category.comment}`)
+        .join("\n");
+
+    const templateParams = {
+        recipient_email: userData.email,
+        recipient_name: userData.name ?? "there",
+        total_score: `${summary.totalScore}`,
+        final_assessment: summary.finalAssessment,
+        category_breakdown: categoryBreakdown,
+        feedback_url: `${appUrl}/interview/${summary.interviewId}/feedback`,
+        feedback_id: summary.feedbackId,
+    };
+
+    try {
+        const response = await fetch(EMAILJS_ENDPOINT, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${privateKey}`,
+            },
+            body: JSON.stringify({
+                service_id: serviceId,
+                template_id: templateId,
+                user_id: publicKey,
+                template_params: templateParams,
+            }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => "Unknown error");
+            throw new Error(`EmailJS responded with ${response.status}: ${errorText}`);
+        }
+
+        console.log(`Feedback summary email sent to ${userData.email}`);
+    } catch (error) {
+        console.error("Failed to send feedback summary email:", error);
+    }
 }
