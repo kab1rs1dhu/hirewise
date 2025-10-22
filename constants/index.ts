@@ -1,6 +1,20 @@
 import { CreateAssistantDTO } from "@vapi-ai/web/dist/api";
 import { z } from "zod";
 
+const CATEGORY_NAMES = [
+  "Communication Skills",
+  "Technical Knowledge",
+  "Problem Solving",
+  "Cultural Fit",
+  "Confidence and Clarity",
+] as const;
+
+const categoryScoreSchema = z.object({
+  name: z.enum(CATEGORY_NAMES),
+  score: z.number(),
+  comment: z.string(),
+});
+
 export const mappings = {
   "react.js": "react",
   reactjs: "react",
@@ -157,33 +171,18 @@ End the conversation on a polite and positive note.
 
 export const feedbackSchema = z.object({
   totalScore: z.number(),
-  categoryScores: z.tuple([
-    z.object({
-      name: z.literal("Communication Skills"),
-      score: z.number(),
-      comment: z.string(),
+  categoryScores: z
+    .array(categoryScoreSchema)
+    .length(CATEGORY_NAMES.length)
+    .superRefine((scores, ctx) => {
+      const seen = new Set(scores.map((score) => score.name));
+      if (seen.size !== CATEGORY_NAMES.length) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Each category must appear exactly once.",
+        });
+      }
     }),
-    z.object({
-      name: z.literal("Technical Knowledge"),
-      score: z.number(),
-      comment: z.string(),
-    }),
-    z.object({
-      name: z.literal("Problem Solving"),
-      score: z.number(),
-      comment: z.string(),
-    }),
-    z.object({
-      name: z.literal("Cultural Fit"),
-      score: z.number(),
-      comment: z.string(),
-    }),
-    z.object({
-      name: z.literal("Confidence and Clarity"),
-      score: z.number(),
-      comment: z.string(),
-    }),
-  ]),
   strengths: z.array(z.string()),
   areasForImprovement: z.array(z.string()),
   finalAssessment: z.string(),
